@@ -1,19 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import rolesData from './roles.json';
 
+const teamColor = (team) => {
+  switch (team) {
+    case 'townsfolk': return 'text-blue-400';
+    case 'outsider':  return 'text-cyan-400';
+    case 'minion':    return 'text-yellow-400';
+    case 'demon':     return 'text-red-500';
+    default:          return 'text-gray-400';
+  }
+};
+
 export default function StorytellerView({ socket, goBack }) {
   const [roomCode, setRoomCode] = useState(null);
   const [players, setPlayers] = useState([]);
   const [script, setScript] = useState(null);
-  const [assignments, setAssignments] = useState({});
+  const [gameAssignments, setGameAssignments] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     socket.on('room_created', (data) => setRoomCode(data.roomCode));
     socket.on('players_updated', (updatedPlayers) => setPlayers(updatedPlayers));
+    socket.on('game_started', (data) => setGameAssignments(data.assignments));
+    socket.on('error', (msg) => setError(msg));
 
     return () => {
       socket.off('room_created');
       socket.off('players_updated');
+      socket.off('game_started');
+      socket.off('error');
     };
   }, [socket]);
 
@@ -25,11 +40,9 @@ export default function StorytellerView({ socket, goBack }) {
         try {
           const rawJson = JSON.parse(event.target.result);
           let parsedScript = { scriptName: "Custom Script", characters: [] };
-          
-          // Helper to turn IDs like "washerwoman" or "noble_hunter" into "Washerwoman"
+
           const formatName = (id) => id.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, str => str.toUpperCase()).trim();
 
-          // Look up character data in roles.json to get proper name and team
           const enrichCharacter = (id) => {
             const role = rolesData.find(r => r.id === id);
             if (role) {
@@ -46,10 +59,10 @@ export default function StorytellerView({ socket, goBack }) {
                 parsedScript.characters.push(enrichCharacter(item));
               } else if (item.id) {
                 const enriched = enrichCharacter(item.id);
-                parsedScript.characters.push({ 
-                  id: item.id, 
-                  name: item.name || enriched.name, 
-                  team: item.team || enriched.team 
+                parsedScript.characters.push({
+                  id: item.id,
+                  name: item.name || enriched.name,
+                  team: item.team || enriched.team
                 });
               }
             });
@@ -72,41 +85,54 @@ export default function StorytellerView({ socket, goBack }) {
     }
   };
 
-  const startGame = () => {
+  const createRoom = () => {
     if (script) {
       socket.emit('create_room', script);
     }
   };
 
-  const assignRole = (playerId, characterId) => {
-    const character = script.characters.find(c => c.id === characterId);
-    setAssignments(prev => ({ ...prev, [playerId]: character }));
+  const startGame = () => {
+    setError('');
+    socket.emit('start_game', { roomCode });
   };
 
-  const sendTokens = () => {
-    if (Object.keys(assignments).length !== players.length) {
-      alert("Not all players have been assigned a character!");
-      return;
-    }
-    socket.emit('distribute_tokens', { roomCode, assignments });
-    alert("Tokens sent to players!");
-  };
+  // Phase 3: Game running — show assignment reference
+  if (gameAssignments) {
+    return (
+      <div className="flex flex-col items-center min-h-screen p-4 w-full max-w-md mx-auto text-white">
+        <h2 className="text-2xl font-bold mb-2 text-red-500">Game In Progress</h2>
+        <p className="text-gray-400 mb-6 font-mono">Room: {roomCode}</p>
 
+        <div className="w-full flex flex-col gap-2">
+          {gameAssignments.map((a, i) => (
+            <div key={i} className="bg-gray-800 p-3 rounded flex justify-between items-center border border-gray-700">
+              <span className="font-bold">{a.playerName}</span>
+              <span className={teamColor(a.character.team)}>
+                {a.character.name} <span className="text-xs opacity-70">({a.character.team})</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Phase 1: Upload script and create room
   if (!roomCode) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 text-white">
-        <button onClick={goBack} className="mb-4 text-gray-400">← Back</button>
+        <button onClick={goBack} className="mb-4 text-gray-400 absolute top-4 left-4">← Back</button>
         <h2 className="text-2xl mb-4">Upload Script to Start</h2>
         <input type="file" accept=".json" onChange={handleFileUpload} className="mb-4" />
-        
+
         {script ? (
           <div className="flex flex-col items-center mt-4 w-full max-w-xs">
             <p className="text-green-400 mb-4 font-bold text-lg text-center">Loaded: {script.scriptName}</p>
-            <button 
-              onClick={startGame}
+            <button
+              onClick={createRoom}
               className="bg-red-800 hover:bg-red-700 w-full py-3 rounded-lg text-xl font-bold transition-colors shadow-lg"
             >
-              Start Game
+              Create Room
             </button>
           </div>
         ) : (
@@ -118,6 +144,7 @@ export default function StorytellerView({ socket, goBack }) {
     );
   }
 
+  // Phase 2: Lobby — waiting for players
   return (
     <div className="flex flex-col items-center min-h-screen p-4 w-full max-w-md mx-auto text-white">
       <div className="bg-gray-800 p-4 rounded-lg text-center w-full mb-6 border border-gray-700">
@@ -125,34 +152,26 @@ export default function StorytellerView({ socket, goBack }) {
         <p className="text-5xl font-mono tracking-widest text-red-500 font-bold">{roomCode}</p>
       </div>
 
-      <h3 className="text-xl w-full text-left mb-2">Players ({players.length})</h3>
+      <h3 className="text-xl w-full text-left mb-2">
+        Players ({players.length} joined — need 5-15)
+      </h3>
       <div className="w-full flex flex-col gap-3 mb-8">
         {players.map(p => (
-          <div key={p.id} className="bg-gray-800 p-3 rounded flex justify-between items-center">
+          <div key={p.id} className="bg-gray-800 p-3 rounded border border-gray-700">
             <span>{p.name}</span>
-            <select 
-              className="bg-gray-700 p-2 rounded text-sm outline-none"
-              onChange={(e) => assignRole(p.id, e.target.value)}
-              defaultValue=""
-            >
-              <option value="" disabled>Select Role...</option>
-              {script?.characters.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.team !== 'Unknown' ? `(${c.team})` : ''}
-                </option>
-              ))}
-            </select>
           </div>
         ))}
         {players.length === 0 && <p className="text-gray-500 text-center py-4">Waiting for players...</p>}
       </div>
 
-      <button 
-        onClick={sendTokens}
-        disabled={players.length === 0}
-        className="bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white w-full py-3 rounded-lg text-lg font-bold"
+      {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
+
+      <button
+        onClick={startGame}
+        disabled={players.length < 5 || players.length > 15}
+        className="bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white w-full py-3 rounded-lg text-lg font-bold transition-colors"
       >
-        Send Tokens
+        Start Game ({players.length} players)
       </button>
     </div>
   );

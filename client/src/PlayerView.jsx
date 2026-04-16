@@ -71,7 +71,7 @@ export default function PlayerView({ socket, goBack }) {
       <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center text-white">
         <div className="animate-pulse w-16 h-16 bg-red-900 rounded-full mb-6"></div>
         <h2 className="text-2xl font-bold mb-2">You are in the room!</h2>
-        <p className="text-gray-400">Wait for the Storyteller to distribute tokens...</p>
+        <p className="text-gray-400">Waiting for the Storyteller to start the game...</p>
       </div>
     );
   }

@@ -14,7 +14,9 @@ const io = new Server(server, {
   }
 });
 
-const games = {}; 
+const { buildAssignments } = require('./gameLogic');
+
+const games = {};
 
 // Generate a random 4-letter room code
 const generateRoomCode = () => Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -50,20 +52,27 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Storyteller distributes tokens
-  socket.on('distribute_tokens', ({ roomCode, assignments }) => {
+  // Storyteller starts the game — server auto-assigns characters
+  socket.on('start_game', ({ roomCode }) => {
     const game = games[roomCode];
     if (!game || game.storytellerId !== socket.id) return;
 
-    game.status = 'playing';
+    const playerIds = Object.keys(game.players);
+    const { assignments, error } = buildAssignments(playerIds, game.script.characters || []);
 
-    for (const [playerId, character] of Object.entries(assignments)) {
-      if (game.players[playerId]) {
-        game.players[playerId].character = character;
-        // Send character securely ONLY to that specific player
-        io.to(playerId).emit('receive_character', { character });
-      }
+    if (error) {
+      socket.emit('error', error);
+      return;
     }
+
+    const assignmentsList = assignments.map(({ playerId, character }) => {
+      game.players[playerId].character = character;
+      io.to(playerId).emit('receive_character', { character });
+      return { playerName: game.players[playerId].name, character };
+    });
+
+    game.status = 'playing';
+    socket.emit('game_started', { assignments: assignmentsList });
   });
 
   socket.on('disconnect', () => {
