@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 
 // Serve static files from the public directory (React build output)
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -87,7 +87,7 @@ io.on('connection', (socket) => {
 
 // Fallback route for React SPA - serve index.html for all unmatched routes
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 const PORT = process.env.PORT || 3001;

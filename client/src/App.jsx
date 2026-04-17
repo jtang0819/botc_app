@@ -4,7 +4,7 @@ import StorytellerView from './StorytellerView';
 import PlayerView from './PlayerView';
 
 // Connect to the backend Node server
-const socket = io('http://localhost:3001');
+const socket = io();
 
 export default function App() {
   const [view, setView] = useState('home'); // 'home', 'storyteller', 'player'
