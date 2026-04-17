@@ -77,7 +77,7 @@ export default function StorytellerView({ socket, goBack }) {
           }
 
           setScript(parsedScript);
-        } catch (err) {
+        } catch {
           alert('Invalid Script JSON');
         }
       };
@@ -168,7 +168,7 @@ export default function StorytellerView({ socket, goBack }) {
 
       <button
         onClick={startGame}
-        disabled={players.length > 15} // disabled={players.length < 5 || players.length > 15}
+        disabled={players.length < 5 || players.length > 15}
         className="bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white w-full py-3 rounded-lg text-lg font-bold transition-colors"
       >
         Start Game ({players.length} players)

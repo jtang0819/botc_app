@@ -1,9 +1,5 @@
 // BotC team composition by player count (5-15 players)
 const TEAM_COMPOSITION = {
-  1:  { townsfolk: 0, outsider: 0, minion: 0, demon: 1 },
-  2:  { townsfolk: 1, outsider: 0, minion: 0, demon: 1 },
-  3:  { townsfolk: 2, outsider: 0, minion: 0, demon: 1 },
-  4:  { townsfolk: 2, outsider: 0, minion: 1, demon: 1 },
   5:  { townsfolk: 3, outsider: 0, minion: 1, demon: 1 },
   6:  { townsfolk: 3, outsider: 1, minion: 1, demon: 1 },
   7:  { townsfolk: 5, outsider: 0, minion: 1, demon: 1 },
@@ -39,7 +35,7 @@ function buildAssignments(playerIds, scriptCharacters) {
   const composition = TEAM_COMPOSITION[playerCount];
 
   if (!composition) {
-    return { assignments: null, error: `Cannot start with ${playerCount} players. Need 1-15.` };
+    return { assignments: null, error: `Cannot start with ${playerCount} players. Need 5-15.` };
   }
 
   const pools = {
