@@ -77,7 +77,7 @@ export default function StorytellerView({ socket, goBack }) {
           }
 
           setScript(parsedScript);
-        } catch (err) {
+        } catch {
           alert('Invalid Script JSON');
         }
       };
